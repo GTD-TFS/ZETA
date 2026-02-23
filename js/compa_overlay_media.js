@@ -389,9 +389,9 @@ function openFiliacionOverlay(i){
     { key:"Condición", label:"Condición", type:"select", options:["","Perjudicado","Testigo","Víctima","Requirente","Denunciado","Identificado","Infractor","Finado"], defaultValue:"" },
     { key:"Nombre", label:"Nombre" },
     { key:"Apellidos", label:"Apellidos" },
-    { key:"Tipo de documento", label:"Tipo de documento" },
+    { key:"Tipo de documento", label:"Tipo de documento", type:"select", options:["","DNI","NIE","PASAPORTE","INDOCUMENTADO","CARTA NACIONAL DE IDENTIDAD","OTRO DOCUMENTO DE IDENTIDAD"], defaultValue:"" },
     { key:"Nº Documento", label:"Nº Documento" },
-    { key:"Sexo", label:"Sexo" },
+    { key:"Sexo", label:"Sexo", type:"select", options:["","MASCULINO","FEMENINO"], defaultValue:"" },
     { key:"Nacionalidad", label:"Nacionalidad" },
     { key:"Fecha de nacimiento", label:"Fecha de nacimiento" },
     { key:"Lugar de nacimiento", label:"Lugar de nacimiento" },
@@ -447,22 +447,35 @@ function openFiliacionOverlay(i){
     </div>
   `;
 
-  ov.form.querySelectorAll('input[data-ov-fi][data-ov-k], select[data-ov-fi][data-ov-k]').forEach(inp => {
-    const ev = (inp.tagName === 'SELECT') ? 'change' : 'input';
-    inp.addEventListener(ev, () => {
-      const fi = Number(inp.getAttribute('data-ov-fi'));
-      const k = inp.getAttribute('data-ov-k');
-      if (!state.lastJson) state.lastJson = {};
-      if (!Array.isArray(state.lastJson.filiaciones)) state.lastJson.filiaciones = [];
-      if (!state.lastJson.filiaciones[fi] || typeof state.lastJson.filiaciones[fi] !== 'object') state.lastJson.filiaciones[fi] = {};
-      state.lastJson.filiaciones[fi][k] = inp.value;
+  const persistOverlayField = (srcEl) => {
+    if (!srcEl || !srcEl.getAttribute) return;
+    const fi = Number(srcEl.getAttribute('data-ov-fi'));
+    const k = srcEl.getAttribute('data-ov-k');
+    if (!Number.isFinite(fi) || !k) return;
+    if (!state.lastJson) state.lastJson = {};
+    if (!Array.isArray(state.lastJson.filiaciones)) state.lastJson.filiaciones = [];
+    if (!state.lastJson.filiaciones[fi] || typeof state.lastJson.filiaciones[fi] !== 'object') state.lastJson.filiaciones[fi] = {};
+    state.lastJson.filiaciones[fi][k] = srcEl.value;
 
-      // refleja también en los inputs/selects del panel inferior (si existen)
-      const sel = `[data-fi="${fi}"][data-k="${CSS.escape(k)}"]`;
-      const twin = document.querySelector(sel);
-      if (twin && twin !== inp) twin.value = inp.value;
-    });
-  });
+    // Refleja también en los inputs/selects del panel inferior (si existen)
+    const sel = `[data-fi="${fi}"][data-k="${CSS.escape(k)}"]`;
+    const twin = document.querySelector(sel);
+    if (twin && twin !== srcEl) twin.value = srcEl.value;
+
+    // Persistencia de Condición en override front-end
+    if (k === "Condición"){
+      try{ _ensureOverride(fi).condicion = srcEl.value; }catch(e){}
+    }
+  };
+
+  // Delegado (robusto): sigue funcionando aunque otro módulo reemplace inputs por selects.
+  const delegatedOverlayPersist = (ev) => {
+    const t = ev && ev.target;
+    if (!t || !t.matches || !t.matches('input[data-ov-fi][data-ov-k], select[data-ov-fi][data-ov-k]')) return;
+    persistOverlayField(t);
+  };
+  ov.form.oninput = delegatedOverlayPersist;
+  ov.form.onchange = delegatedOverlayPersist;
 
   // Fecha de nacimiento: máscara automática dd/mm/aaaa
   ov.form.querySelectorAll('input[data-ov-k="Fecha de nacimiento"]').forEach(inp => {
@@ -485,17 +498,6 @@ function openFiliacionOverlay(i){
       ? (state.lastJson.filiaciones[fi][k] || "")
       : "";
     sel.value = String(cur || "");
-  });
-
-  // Persistencia de Condición (front-end) aunque vuelva del backend
-  ov.form.querySelectorAll('input[data-ov-fi][data-ov-k], select[data-ov-fi][data-ov-k]').forEach(inp => {
-    inp.addEventListener((inp.tagName === 'SELECT') ? 'change' : 'input', () => {
-      const fi = Number(inp.getAttribute('data-ov-fi'));
-      const k = inp.getAttribute('data-ov-k');
-      if (k === "Condición"){
-        try{ _ensureOverride(fi).condicion = inp.value; }catch(e){}
-      }
-    });
   });
 
   lockBodyScroll();
