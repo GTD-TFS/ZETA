@@ -95,6 +95,7 @@
   function wire(){
     const btnAdd = $('svcAdd');
     const btnClear = $('svcClear');
+    const btnConsultaGpt = $('svcConsultaGpt');
 
     if (btnAdd){
       btnAdd.addEventListener('click', ()=>{
@@ -120,6 +121,16 @@
         localStorage.removeItem(LS_KEY);
         alert('Servicios borrados.');
         render();
+      });
+    }
+
+    if (btnConsultaGpt){
+      btnConsultaGpt.addEventListener('click', ()=>{
+        window.open(
+          'https://chatgpt.com/g/g-69a9ba66aadc8191ba2f0dd0e3941207-consulta-de-actuacion',
+          '_blank',
+          'noopener'
+        );
       });
     }
 

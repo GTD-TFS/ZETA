@@ -548,6 +548,43 @@ body.services-on .hero{
   margin:8px 0 10px;
 }
 
+.svcActions.single{
+  grid-template-columns:1fr;
+  margin-top:0;
+}
+
+#svcConsultaWrap{
+  display:none;
+  width:100%;
+  justify-content:center;
+  margin:0 0 4px;
+}
+
+body.services-on #svcConsultaWrap{
+  display:flex;
+}
+
+#svcConsultaGpt{
+  width:max-content;
+  max-width:100%;
+  min-width:0;
+  margin:0 auto;
+  padding:10px 14px;
+  border:1px solid var(--line-soft) !important;
+  background:linear-gradient(165deg,var(--glass-a),var(--glass-b)) !important;
+  color:var(--ink) !important;
+  box-shadow:var(--shadow-inner), 0 6px 14px rgba(0,0,0,.22) !important;
+  text-shadow:none !important;
+}
+
+body.services-on{
+  padding-top:calc(env(safe-area-inset-top) + 8px);
+}
+
+body.services-on #servicesCard{
+  margin-top:4px !important;
+}
+
 .svcGrid{
   display:flex;
   flex-direction:column;
