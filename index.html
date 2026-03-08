@@ -687,14 +687,28 @@ function applyThumbOverrides(){
     if (ov && String(ov.domicilio || '').trim()){
       cur["Domicilio"] = String(ov.domicilio).trim();
     } else {
-      cur["Domicilio"] = typeof base["Domicilio"] === 'string' ? base["Domicilio"] : (cur["Domicilio"] || "");
+      const curDom = String(cur["Domicilio"] || "").trim();
+      if (curDom){
+        cur["Domicilio"] = curDom;
+      } else if (typeof base["Domicilio"] === 'string' && String(base["Domicilio"]).trim()){
+        cur["Domicilio"] = base["Domicilio"];
+      } else if ("Domicilio" in cur) {
+        delete cur["Domicilio"];
+      }
     }
 
-    // TELÉFONO: si hay override -> añade campo; si no, elimina si existe
+    // TELÉFONO: conserva edición manual; si no hay nada, usa base si existe.
     if (ov && String(ov.telefono || '').trim()){
       cur["Teléfono"] = String(ov.telefono).trim();
     } else {
-      if ("Teléfono" in cur) delete cur["Teléfono"]; // requisito: no se rellena si vacío
+      const curTel = String(cur["Teléfono"] || "").trim();
+      if (curTel){
+        cur["Teléfono"] = curTel;
+      } else if (typeof base["Teléfono"] === 'string' && String(base["Teléfono"]).trim()){
+        cur["Teléfono"] = base["Teléfono"];
+      } else if ("Teléfono" in cur) {
+        delete cur["Teléfono"];
+      }
     }
 
     // CONDICIÓN: dato FRONT-END. Si hay override, siempre pisa lo que venga del backend.
@@ -933,6 +947,39 @@ function getJsonString(){
   return JSON.stringify(state.lastJson ?? {}, null, 2);
 }
 
+function getCompareTextCandidate(src){
+  const obj = src && typeof src === 'object' ? src : {};
+  const keys = ['comparecencia', 'doc', 'doc_texto', 'texto', 'respuesta_modelo'];
+  for (const k of keys){
+    const v = obj[k];
+    if (typeof v === 'string' && v.trim()) return v;
+  }
+  return "";
+}
+
+function persistCompareTextToState(text){
+  const v = String(text || "");
+  if (!state.lastJson || typeof state.lastJson !== 'object') state.lastJson = {};
+
+  if (Object.prototype.hasOwnProperty.call(state.lastJson, 'comparecencia')){
+    state.lastJson.comparecencia = v;
+  } else {
+    state.lastJson.doc = v;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(state.lastJson, 'doc_texto')){
+    state.lastJson.doc_texto = v;
+  }
+  if (Object.prototype.hasOwnProperty.call(state.lastJson, 'texto')){
+    state.lastJson.texto = v;
+  }
+}
+
+function syncCompareTextFromTextarea(){
+  if (!el.docOut) return;
+  persistCompareTextToState(el.docOut.value || "");
+}
+
 function downloadText(filename, text){
   const blob = new Blob([text], {type: 'application/json;charset=utf-8'});
   const url = URL.createObjectURL(blob);
@@ -1097,6 +1144,7 @@ if (el.btnEnviar) el.btnEnviar.onclick = async () => {
     // Guardamos el JSON base de IA y creamos un JSON de trabajo (editable + overrides)
     state.aiJson = JSON.parse(JSON.stringify(mappedOut || {}));
     const prev = JSON.parse(JSON.stringify(state.lastJson || {}));
+    const prevCompareText = getCompareTextCandidate(prev);
     state.lastJson = JSON.parse(JSON.stringify(mappedOut || {}));
     if (Array.isArray(prev?.filiaciones)){
       if (!Array.isArray(state.lastJson.filiaciones)) state.lastJson.filiaciones = [];
@@ -1126,15 +1174,10 @@ if (el.btnEnviar) el.btnEnviar.onclick = async () => {
 
     setExportEnabled(!!state.lastJson);
 
-    const docCandidate =
-      (typeof OUT?.doc === 'string' && OUT.doc) ||
-      (typeof OUT?.comparecencia === 'string' && OUT.comparecencia) ||
-      (typeof OUT?.doc_texto === 'string' && OUT.doc_texto) ||
-      (typeof OUT?.respuesta_modelo === 'string' && OUT.respuesta_modelo) ||
-      (typeof OUT?.texto === 'string' && OUT.texto) ||
-      "";
+    const docCandidate = getCompareTextCandidate(OUT) || prevCompareText;
 
     el.docOut.value = docCandidate;
+    persistCompareTextToState(docCandidate);
 
     // Debug visible (sin consola): si viene vacío, muestro claves para saber qué está llegando
     if (!docCandidate) {
@@ -1292,25 +1335,7 @@ if (el.btnCancelar) el.btnCancelar.onclick = () => {
 */
 if (el.docOut){
   el.docOut.addEventListener('input', () => {
-    if (!state.lastJson || typeof state.lastJson !== 'object') state.lastJson = {};
-
-    const v = el.docOut.value || "";
-
-    // Si el JSON ya venía con "comparecencia", seguimos actualizando esa.
-    if (Object.prototype.hasOwnProperty.call(state.lastJson, 'comparecencia')){
-      state.lastJson.comparecencia = v;
-    } else {
-      state.lastJson.doc = v;
-    }
-
-    // Si hay otra clave de texto usada por tu backend, actualízala también sin romper nada.
-    if (Object.prototype.hasOwnProperty.call(state.lastJson, 'doc_texto')){
-      state.lastJson.doc_texto = v;
-    }
-    if (Object.prototype.hasOwnProperty.call(state.lastJson, 'texto')){
-      state.lastJson.texto = v;
-    }
-
+    persistCompareTextToState(el.docOut.value || "");
     setExportEnabled(true);
   });
 }
@@ -1334,6 +1359,7 @@ if (el.btnDescargar) el.btnDescargar.onclick = async () => {
     setStatus('Falta cifrado_descarga.js', 'err');
     return;
   }
+  syncCompareTextFromTextarea();
   const rnd = Math.floor(1000 + Math.random() * 9000);
 const wrappedText = await window.CompaCifrado.wrapEncryptedJSON(state.lastJson);
 
